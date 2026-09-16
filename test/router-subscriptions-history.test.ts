@@ -180,4 +180,34 @@ describe("router history", () => {
     expect(router.getState().status).toBe("success");
     expect(router.getState().matches[0]?.data).toEqual({ label: "u_2", route: "settings" });
   });
+
+  it("uses the new start context during synchronous history replay", async () => {
+    const router = createTestRouter();
+    await router.navigate("chat", { label: "old" });
+    const history = createMemoryHistory(location("/settings"));
+    const listen = history.listen;
+    history.listen = (listener) => {
+      const unsubscribe = listen(listener);
+      listener(history.location());
+      return unsubscribe;
+    };
+
+    await router.start(history, "", { label: "restarted" });
+
+    expect(router.getState().matches[0]?.data).toEqual({ label: "restarted", route: "settings" });
+    router.stop();
+  });
+
+  it("stores a new start context even when the initial location is unmatched", async () => {
+    const router = createTestRouter();
+    await router.navigate("chat", { label: "old" });
+    const history = createMemoryHistory(location("/missing"));
+    await router.start(history, "", { label: "restarted" });
+
+    history.emit(location("/settings"));
+    await waitFor(() => router.getState().status === "success");
+
+    expect(router.getState().matches[0]?.data).toEqual({ label: "restarted", route: "settings" });
+    router.stop();
+  });
 });
