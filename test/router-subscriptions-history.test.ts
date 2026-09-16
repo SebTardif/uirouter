@@ -210,4 +210,20 @@ describe("router history", () => {
     expect(router.getState().matches[0]?.data).toEqual({ label: "restarted", route: "settings" });
     router.stop();
   });
+
+  it.each(["navigateLocation", "preloadLocation"] as const)(
+    "stores context from an unmatched %s call for later history events",
+    async (method) => {
+      const router = createTestRouter();
+      const history = createMemoryHistory(location("/chat"));
+      await router.start(history, "", { label: "old" });
+
+      await router[method](location("/missing"), { label: "current" });
+      history.emit(location("/settings"));
+      await waitFor(() => router.getState().status === "success");
+
+      expect(router.getState().matches[0]?.data).toEqual({ label: "current", route: "settings" });
+      router.stop();
+    },
+  );
 });

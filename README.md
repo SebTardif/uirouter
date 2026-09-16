@@ -93,6 +93,7 @@ Each `start` establishes its supplied context before subscribing, including
 adapters that replay the location synchronously. Later history changes use the
 latest context stored by navigation or preloading. Cache identity still depends
 on `loaderDeps`; include session-dependent values there when data varies by session.
+Location-based calls store their context even when no route matches the URL.
 
 For programmatic navigation, use `navigate(routeId, context, options)` or
 `navigateLocation(location, context)`. Pass `{ history: "push" | "replace" }`
