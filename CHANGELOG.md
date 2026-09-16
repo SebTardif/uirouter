@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Prevent infinite or oversized cache retention from overflowing host timers, preserving finite expiry and clearing obsolete preload timers. Thanks @SebTardif.
+
 ### CI
 
 - Refresh development dependencies, pnpm, and pinned GitHub Actions without changing the router API or runtime requirements.
