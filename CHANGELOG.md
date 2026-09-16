@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Keep unused cached and preloaded matches when `gcTime` or `preloadGcTime` is `Infinity` or larger than the host timer limit (`2^31-1` ms). Those values no longer overflow `setTimeout` into a 1ms timer. Only positive `Infinity` is permanent; `NaN` and `-Infinity` still expire. Promoting a preloaded match to an infinite cache cancels the leftover finite preload timer.
+- Prevent infinite or oversized cache retention from overflowing host timers, preserving finite expiry and clearing obsolete preload timers. Thanks @SebTardif.
 
 ### CI
 

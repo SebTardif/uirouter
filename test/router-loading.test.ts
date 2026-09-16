@@ -604,6 +604,25 @@ describe("router loading", () => {
     }
   });
 
+  it("expires long finite retention only after the full duration", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const retention = 30 * 24 * 60 * 60 * 1000;
+    const router = createRouter({
+      preloadGcTime: retention,
+      routes: [{ id: "chat", path: "/chat", component: () => ({ view: "chat" }) }],
+    });
+
+    await router.preloadRoute("chat", undefined);
+    await vi.advanceTimersByTimeAsync(MAX_TIMER_DELAY);
+    expect(router.getState().cachedMatches).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(retention - MAX_TIMER_DELAY - 1);
+    expect(router.getState().cachedMatches).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(router.getState().cachedMatches).toEqual([]);
+    router.stop();
+  });
+
   it("aborts in-flight work and clears route state on stop", async () => {
     const data = deferred<TestData>();
     let signal: AbortSignal | undefined;
