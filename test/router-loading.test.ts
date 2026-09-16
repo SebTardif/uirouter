@@ -474,6 +474,93 @@ describe("router loading", () => {
     }
   });
 
+  it("expires a cached match when gcTime is -Infinity", async () => {
+    const router = createRouter<RouteId, TestContext, TestModule, TestData>({
+      gcTime: Number.NEGATIVE_INFINITY,
+      routes: [
+        definePage<"chat", TestContext, TestModule, TestData>({
+          id: "chat",
+          path: "/chat",
+          component: () => ({ view: "chat" }),
+          loader: (context) => ({ label: context.label, route: "chat" }),
+        }),
+        definePage<"fast", TestContext, TestModule, TestData>({
+          id: "fast",
+          path: "/fast",
+          component: () => ({ view: "fast" }),
+          loader: (context) => ({ label: context.label, route: "fast" }),
+        }),
+      ],
+    });
+
+    await router.navigate("chat", { label: "cached" });
+    await router.navigate("fast", { label: "active" });
+
+    expect(router.getState().cachedMatches).toEqual([]);
+  });
+
+  it("expires a cached match when gcTime is NaN", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const router = createRouter<RouteId, TestContext, TestModule, TestData>({
+      gcTime: Number.NaN,
+      routes: [
+        definePage<"chat", TestContext, TestModule, TestData>({
+          id: "chat",
+          path: "/chat",
+          component: () => ({ view: "chat" }),
+          loader: (context) => ({ label: context.label, route: "chat" }),
+        }),
+        definePage<"fast", TestContext, TestModule, TestData>({
+          id: "fast",
+          path: "/fast",
+          component: () => ({ view: "fast" }),
+          loader: (context) => ({ label: context.label, route: "fast" }),
+        }),
+      ],
+    });
+
+    await router.navigate("chat", { label: "cached" });
+    await router.navigate("fast", { label: "active" });
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(router.getState().cachedMatches).toEqual([]);
+  });
+
+  it("cancels a finite preload timer when cache retention becomes Infinity", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const router = createRouter<RouteId, TestContext, TestModule, TestData>({
+      preloadGcTime: 10,
+      gcTime: Infinity,
+      routes: [
+        definePage<"chat", TestContext, TestModule, TestData>({
+          id: "chat",
+          path: "/chat",
+          component: () => ({ view: "chat" }),
+          loader: (context) => ({ label: context.label, route: "chat" }),
+        }),
+        definePage<"fast", TestContext, TestModule, TestData>({
+          id: "fast",
+          path: "/fast",
+          component: () => ({ view: "fast" }),
+          loader: (context) => ({ label: context.label, route: "fast" }),
+        }),
+      ],
+    });
+
+    await router.preloadRoute("chat", { label: "preloaded" });
+    await router.navigate("chat", { label: "preloaded" });
+    await router.navigate("fast", { label: "active" });
+    await vi.advanceTimersByTimeAsync(11);
+
+    expect(router.getState().cachedMatches).toHaveLength(1);
+    expect(router.getState().cachedMatches[0]).toMatchObject({
+      routeId: "chat",
+      status: "success",
+    });
+  });
+
   it("does not pass an overflowing delay when gcTime exceeds the timer limit", async () => {
     const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
     const router = createRouter<RouteId, TestContext, TestModule, TestData>({

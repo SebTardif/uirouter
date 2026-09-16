@@ -100,7 +100,12 @@ export function createRouteLoading<TRouteId extends string, TLoadContext, TModul
     const gcTime = match.preload
       ? (route.preloadGcTime ?? options.preloadGcTime)
       : (route.gcTime ?? options.gcTime);
-    if (!Number.isFinite(gcTime)) {
+    if (gcTime === Infinity) {
+      const previousTimer = gcTimers.get(match.id);
+      if (previousTimer) {
+        globalThis.clearTimeout(previousTimer);
+        gcTimers.delete(match.id);
+      }
       return;
     }
     const remaining = gcTime - (now() - match.updatedAt);
