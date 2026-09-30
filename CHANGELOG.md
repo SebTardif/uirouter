@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- Reject loader redirect cycles and chains longer than 10 redirects during navigation and preload; even terminating chains above the limit now fail. Thanks @SebTardif.
 - Restore strict dependency engine checks with pnpm 11 so unsupported development installs fail early. Thanks @dependabot.
 - Ignore cancelled preload failures and redirects after stopping so late results cannot start new loads or remove replacement cached matches.
 - Contain synchronous component and loader exceptions so parallel load failures cannot escape as unhandled rejections or prevent component loading.
