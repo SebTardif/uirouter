@@ -163,8 +163,14 @@ definePage({
 ```
 
 When a redirect is thrown during a real navigation (not a preload), the router
-chases it with `history: "replace"`. A `notFound` sets the router status to
-`"notFound"` and exposes the payload on the match's `error`.
+chases it with `history: "replace"`. Preload follows the same redirects in the
+cache only. Both paths allow at most 10 redirects per call and reject repeated
+normalized locations (including search and hash) with a `Redirect hop limit`
+or `Redirect cycle detected` error. Even a terminating chain longer than 10
+redirects rejects. Navigation publishes `"error"`; preload rejects without
+changing the active route or router status. A new call starts a fresh budget. A `notFound`
+sets the router status to `"notFound"` and exposes the payload on the match's
+`error`.
 
 Unmatched locations also produce `notFound` router state. Applications decide
 how to present or redirect that state; the router does not choose a default
