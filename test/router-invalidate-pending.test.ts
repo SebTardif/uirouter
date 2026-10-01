@@ -194,4 +194,45 @@ describe("invalidate during a pending navigation", () => {
     expectSecondChatMatch(history, router, firstMatchId);
     router.stop();
   });
+
+  it("preserves invalidation when the previous active match moves into cache", async () => {
+    let loadACount = 0;
+    let finishComponentB!: () => void;
+    const componentBGate = new Promise<void>((resolve) => {
+      finishComponentB = resolve;
+    });
+    const router = createRouter<RouteId, string, string, string>({
+      routes: [
+        {
+          id: "a",
+          path: "/a",
+          staleTime: 60_000,
+          component: () => "view-a",
+          loader: () => `data-a-${++loadACount}`,
+        },
+        {
+          id: "b",
+          path: "/b",
+          component: () => componentBGate.then(() => "view-b"),
+          loader: () => "data-b",
+        },
+      ],
+    });
+    const history = createMemoryHistory(location("/a"));
+    await router.start(history, "", "ctx");
+    const navigation = router.navigate("b", "ctx", { history: "push" });
+
+    await router.invalidate();
+    finishComponentB();
+    await navigation;
+
+    expectDestinationB(history, router);
+    await router.navigate("a", "ctx", { history: "push" });
+    expect(loadACount).toBe(2);
+    expect(router.getState().matches[0]).toMatchObject({
+      routeId: "a",
+      data: "data-a-2",
+    });
+    router.stop();
+  });
 });

@@ -170,6 +170,26 @@ export function createRouter<
     });
   };
 
+  const cacheStoredMatch = (candidate: RouteMatch<TRouteId, TModule, TData> | undefined): void => {
+    if (!candidate) {
+      return;
+    }
+    // Invalidation can replace the active match while a destination loads.
+    // Cache the store's latest state, never the navigation's earlier snapshot.
+    const current = matches.getMatch(candidate.id);
+    if (!current || !canCacheMatch(current)) {
+      return;
+    }
+    matches.setCached([
+      ...matches.getState().cachedMatches.filter((match) => match.id !== current.id),
+      current,
+    ]);
+    const route = compiled.byId.get(current.routeId);
+    if (route) {
+      loading.scheduleGc(current, route);
+    }
+  };
+
   const navigate = async (
     routeId: TRouteId,
     context: TLoadContext,
@@ -282,16 +302,7 @@ export function createRouter<
 
     if (activatedCachedMatch) {
       matches.batch(() => {
-        if (previous && canCacheMatch(previous)) {
-          matches.setCached([
-            ...matches.getState().cachedMatches.filter((candidate) => candidate.id !== previous.id),
-            previous,
-          ]);
-          const previousRoute = compiled.byId.get(previous.routeId);
-          if (previousRoute) {
-            loading.scheduleGc(previous, previousRoute);
-          }
-        }
+        cacheStoredMatch(previous);
         matches.setActive([activatedCachedMatch]);
         matches.setPending([]);
         matches.setLocation(location, location);
@@ -326,18 +337,7 @@ export function createRouter<
             }
             targetPublished = true;
             matches.batch(() => {
-              if (previous && canCacheMatch(previous)) {
-                matches.setCached([
-                  ...matches
-                    .getState()
-                    .cachedMatches.filter((candidate) => candidate.id !== previous.id),
-                  previous,
-                ]);
-                const previousRoute = compiled.byId.get(previous.routeId);
-                if (previousRoute) {
-                  loading.scheduleGc(previous, previousRoute);
-                }
-              }
+              cacheStoredMatch(previous);
               matches.setActive([{ ...loadedMatch, module }]);
               matches.setPending([]);
               matches.setLocation(location, location);
@@ -377,12 +377,8 @@ export function createRouter<
         if (failedMatch) {
           const currentActive = targetPublished ? previous : matches.getActiveMatch();
           matches.batch(() => {
-            if (!targetPublished && !sameMatch && currentActive && canCacheMatch(currentActive)) {
-              matches.setCached([...matches.getState().cachedMatches, currentActive]);
-              const currentRoute = compiled.byId.get(currentActive.routeId);
-              if (currentRoute) {
-                loading.scheduleGc(currentActive, currentRoute);
-              }
+            if (!targetPublished && !sameMatch) {
+              cacheStoredMatch(currentActive);
             }
             matches.updateMatch(match.id, (current) => ({
               ...current,
@@ -425,12 +421,8 @@ export function createRouter<
       };
       const currentActive = targetPublished ? previous : matches.getActiveMatch();
       matches.batch(() => {
-        if (!targetPublished && !sameMatch && currentActive && canCacheMatch(currentActive)) {
-          matches.setCached([...matches.getState().cachedMatches, currentActive]);
-          const currentRoute = compiled.byId.get(currentActive.routeId);
-          if (currentRoute) {
-            loading.scheduleGc(currentActive, currentRoute);
-          }
+        if (!targetPublished && !sameMatch) {
+          cacheStoredMatch(currentActive);
         }
         matches.setActive([resolvedMatch]);
         matches.setPending([]);
