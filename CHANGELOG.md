@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- Abort a preload joined by navigation when the router stops so a late loader result cannot replace the next active match.
 - Reject loader redirect cycles and chains longer than 10 redirects during navigation and preload; even terminating chains above the limit now fail. Thanks @SebTardif.
 - Restore strict dependency engine checks with pnpm 11 so unsupported development installs fail early. Thanks @dependabot.
 - Ignore cancelled preload failures and redirects after stopping so late results cannot start new loads or remove replacement cached matches.
