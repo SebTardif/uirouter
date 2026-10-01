@@ -82,6 +82,15 @@ function cancelRun(run: NavigationRun | null): void {
   run?.controller.abort();
 }
 
+function inFlightAbortController<TRouteId extends string, TModule, TData>(
+  match: RouteMatch<TRouteId, TModule, TData> | undefined,
+): AbortController | undefined {
+  if (!match?.isFetching || match.abortController.signal.aborted) {
+    return undefined;
+  }
+  return match.abortController;
+}
+
 function canCacheMatch<TRouteId extends string, TModule, TData>(
   match: RouteMatch<TRouteId, TModule, TData>,
 ): boolean {
@@ -215,7 +224,8 @@ export function createRouter<
     }
 
     cancelRun(currentRun);
-    const controller = new AbortController();
+    const controller =
+      inFlightAbortController(sameMatch ? previous : cached) ?? new AbortController();
     const cause: RouteLoadCause = revalidating ? "revalidate" : "navigation";
     const match =
       sameMatch && previous
