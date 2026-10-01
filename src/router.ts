@@ -24,6 +24,7 @@ import type {
 type NavigationRun = {
   controller: AbortController;
   matchId: string;
+  routeId: string;
   location: RouteLocation;
   promise?: Promise<void>;
 };
@@ -268,7 +269,7 @@ export function createRouter<
           }
         : undefined;
     let targetPublished = Boolean(activatedCachedMatch);
-    const run: NavigationRun = { controller, matchId, location };
+    const run: NavigationRun = { controller, matchId, routeId, location };
     currentRun = run;
     const hookOptions: RouteHookOptions = {
       signal: controller.signal,
@@ -589,6 +590,11 @@ export function createRouter<
       : Promise.resolve();
   };
 
+  const hasPendingNavigationToDifferentRoute = (routeId: string): boolean => {
+    const run = currentRun;
+    return run !== null && !run.controller.signal.aborted && run.routeId !== routeId;
+  };
+
   return {
     routes: [...compiled.byId.values()],
     getRoute: (routeId: TRouteId) => compiled.byId.get(routeId) ?? null,
@@ -601,7 +607,8 @@ export function createRouter<
       if (
         !active ||
         (routeId !== undefined && active.routeId !== routeId) ||
-        !lastContext.hasContext
+        !lastContext.hasContext ||
+        (routeId === undefined && hasPendingNavigationToDifferentRoute(active.routeId))
       ) {
         return Promise.resolve();
       }
@@ -634,15 +641,20 @@ export function createRouter<
     navigateLocation(location: RouteLocation, context: TLoadContext): Promise<void> {
       return handleLocation(location, context);
     },
-    revalidate(context: TLoadContext, routeId = matches.getActiveMatch()?.routeId): Promise<void> {
-      if (!routeId) {
+    revalidate(context: TLoadContext, routeId?: TRouteId): Promise<void> {
+      const active = matches.getActiveMatch();
+      const targetRouteId = routeId ?? active?.routeId;
+      if (
+        !targetRouteId ||
+        (routeId === undefined && hasPendingNavigationToDifferentRoute(targetRouteId))
+      ) {
         return Promise.resolve();
       }
       const target =
-        matches.getActiveMatch()?.routeId === routeId
-          ? matches.getActiveMatch()?.location
-          : locationForPath(compiled.pathForRoute(routeId, basePath));
-      return navigate(routeId, context, { history: "none", revalidate: true }, target);
+        active?.routeId === targetRouteId
+          ? active.location
+          : locationForPath(compiled.pathForRoute(targetRouteId, basePath));
+      return navigate(targetRouteId, context, { history: "none", revalidate: true }, target);
     },
     stop() {
       stopHistory?.();
