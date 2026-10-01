@@ -83,6 +83,45 @@ function expectDestinationB(
   expect(router.getState().matches[0]?.data).toBe("data-b");
 }
 
+function createPendingMatchDestination() {
+  let finishLoader!: () => void;
+  const loaderGate = new Promise<void>((resolve) => {
+    finishLoader = resolve;
+  });
+  const router = createRouter<"chat", string, string, string>({
+    routes: [
+      {
+        id: "chat",
+        path: "/chat",
+        component: () => "view-chat",
+        loaderDeps: (_context, routeLocation) => routeLocation.search,
+        loader: (_context, options) =>
+          options.deps === "?session=two"
+            ? loaderGate.then(() => `data-${options.deps}`)
+            : `data-${options.deps}`,
+      },
+    ],
+  });
+  const history = createMemoryHistory(location("/chat", "?session=one"));
+  return { router, history, finishLoader };
+}
+
+function expectSecondChatMatch(
+  history: MemoryHistory,
+  router: ReturnType<typeof createPendingMatchDestination>["router"],
+  firstMatchId: string,
+): void {
+  expect(history.location()).toEqual(location("/chat", "?session=two"));
+  expect(router.getState().location).toEqual(location("/chat", "?session=two"));
+  expect(router.getState().pendingMatches).toEqual([]);
+  expect(router.getState().matches[0]).toMatchObject({
+    routeId: "chat",
+    status: "success",
+    data: "data-?session=two",
+  });
+  expect(router.getState().matches[0]?.id).not.toBe(firstMatchId);
+}
+
 describe("invalidate during a pending navigation", () => {
   it("lets the pending route finish when invalidate is called without a route id", async () => {
     const { router, history, finishLoader, finishComponent } = createPendingDestination();
@@ -109,6 +148,50 @@ describe("invalidate during a pending navigation", () => {
     await navigation;
 
     expectDestinationB(history, router);
+    router.stop();
+  });
+
+  it("lets a pending match of the active route finish when invalidate has no route id", async () => {
+    const { router, history, finishLoader } = createPendingMatchDestination();
+    await router.start(history, "", "ctx");
+    const firstMatchId = router.getState().matches[0]?.id;
+    if (!firstMatchId) {
+      throw new Error("expected an active match");
+    }
+    const navigation = router.navigate(
+      "chat",
+      "ctx",
+      { history: "push" },
+      location("/chat", "?session=two"),
+    );
+
+    await router.invalidate();
+    finishLoader();
+    await navigation;
+
+    expectSecondChatMatch(history, router, firstMatchId);
+    router.stop();
+  });
+
+  it("lets a pending match of the active route finish when revalidate has no route id", async () => {
+    const { router, history, finishLoader } = createPendingMatchDestination();
+    await router.start(history, "", "ctx");
+    const firstMatchId = router.getState().matches[0]?.id;
+    if (!firstMatchId) {
+      throw new Error("expected an active match");
+    }
+    const navigation = router.navigate(
+      "chat",
+      "ctx",
+      { history: "push" },
+      location("/chat", "?session=two"),
+    );
+
+    await router.revalidate("ctx");
+    finishLoader();
+    await navigation;
+
+    expectSecondChatMatch(history, router, firstMatchId);
     router.stop();
   });
 });

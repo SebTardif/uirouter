@@ -24,7 +24,6 @@ import type {
 type NavigationRun = {
   controller: AbortController;
   matchId: string;
-  routeId: string;
   location: RouteLocation;
   promise?: Promise<void>;
 };
@@ -269,7 +268,7 @@ export function createRouter<
           }
         : undefined;
     let targetPublished = Boolean(activatedCachedMatch);
-    const run: NavigationRun = { controller, matchId, routeId, location };
+    const run: NavigationRun = { controller, matchId, location };
     currentRun = run;
     const hookOptions: RouteHookOptions = {
       signal: controller.signal,
@@ -590,9 +589,9 @@ export function createRouter<
       : Promise.resolve();
   };
 
-  const hasPendingNavigationToDifferentRoute = (routeId: string): boolean => {
+  const hasPendingNavigationToDifferentMatch = (matchId: string): boolean => {
     const run = currentRun;
-    return run !== null && !run.controller.signal.aborted && run.routeId !== routeId;
+    return run !== null && !run.controller.signal.aborted && run.matchId !== matchId;
   };
 
   return {
@@ -608,7 +607,7 @@ export function createRouter<
         !active ||
         (routeId !== undefined && active.routeId !== routeId) ||
         !lastContext.hasContext ||
-        (routeId === undefined && hasPendingNavigationToDifferentRoute(active.routeId))
+        (routeId === undefined && hasPendingNavigationToDifferentMatch(active.id))
       ) {
         return Promise.resolve();
       }
@@ -646,7 +645,9 @@ export function createRouter<
       const targetRouteId = routeId ?? active?.routeId;
       if (
         !targetRouteId ||
-        (routeId === undefined && hasPendingNavigationToDifferentRoute(targetRouteId))
+        (routeId === undefined &&
+          active !== undefined &&
+          hasPendingNavigationToDifferentMatch(active.id))
       ) {
         return Promise.resolve();
       }
